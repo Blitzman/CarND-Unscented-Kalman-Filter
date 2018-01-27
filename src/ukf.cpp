@@ -23,12 +23,17 @@ UKF::UKF() {
 
   // initial covariance matrix
   P_ = MatrixXd(5, 5);
+	P_ << 1.0, 0.0, 0.0, 0.0, 0.0,
+				0.0, 1.0, 0.0, 0.0, 0.0,
+				0.0, 0.0, 1.0, 0.0, 0.0,
+				0.0, 0.0, 0.0, 1.0, 0.0,
+				0.0, 0.0, 0.0, 0.0, 1.0;
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
-  std_a_ = 30;
+  std_a_ = 1.5;
 
   // Process noise standard deviation yaw acceleration in rad/s^2
-  std_yawdd_ = 30;
+  std_yawdd_ = 3.0;
   
   //DO NOT MODIFY measurement noise values below these are provided by the sensor manufacturer.
   // Laser measurement noise standard deviation position1 in m
@@ -46,14 +51,27 @@ UKF::UKF() {
   // Radar measurement noise standard deviation radius change in m/s
   std_radrd_ = 0.3;
   //DO NOT MODIFY measurement noise values above these are provided by the sensor manufacturer.
-  
-  /**
-  TODO:
 
-  Complete the initialization. See ukf.h for other member properties.
+	// Initialization flag
+	is_initialized_ = false;
 
-  Hint: one or more values initialized above might be wildly off...
-  */
+	// State dimension
+	n_x_ = x_.size();
+
+	// Augmented state dimension
+	n_aug_ = n_x_ + 2;
+
+	// Number of sigma points
+	n_sig_ = 2 * n_aug_ + 1;
+
+	// Predicted sigma points matrix
+	Xsig_pred_ = MatrixXd(n_x_, n_sig_);
+
+	// Sigma points weights
+	weights_ = VectorXd(n_sig_);
+
+	// Sigma point spreading
+	lambda_ = 3 - n_aug_;
 }
 
 UKF::~UKF() {}
