@@ -67,11 +67,15 @@ UKF::UKF() {
 	// Predicted sigma points matrix
 	Xsig_pred_ = MatrixXd(n_x_, n_sig_);
 
-	// Sigma points weights
-	weights_ = VectorXd(n_sig_);
-
 	// Sigma point spreading
 	lambda_ = 3 - n_aug_;
+
+	// Sigma points weights
+	weights_ = VectorXd(n_sig_);
+  weights_(0) = lambda_ / (lambda_ + n_aug_);
+  for (unsigned int i = 1; i < 2 * n_aug_ + 1; ++i) {
+    weights_(i) = 0.5 / (lambda_ + n_aug_);
+  }
 }
 
 UKF::~UKF() {}
@@ -81,12 +85,6 @@ UKF::~UKF() {}
  * either radar or laser.
  */
 void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
-  /**
-  TODO:
-
-  Complete this function! Make sure you switch between lidar and radar
-  measurements.
-  */
 
 	// CTRV model is [px, py, v, psi, psi_dot]
 
@@ -140,18 +138,112 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 		UpdateLidar(meas_package);
 }
 
+void UKF::GenerateSigmaPoints(const VectorXd & x, const MatrixXd & P, MatrixXd & Xsig_aug) {
+
+  VectorXd x_aug = VectorXd(7);
+  MatrixXd P_aug = MatrixXd(7, 7);
+
+  // Augmented mean state
+  x_aug.head(5) = x;
+  x_aug(5) = 0;
+  x_aug(6) = 0;
+
+  // Augmented covariance matrix
+  P_aug.fill(0.0);
+  P_aug.topLeftCorner(5, 5) = P;
+  P_aug(5, 5) = std_a_ * std_a_;
+  P_aug(6, 6) = std_yawdd_ * std_yawdd_;
+
+  // Square root matrix
+  MatrixXd L = P_aug.llt().matrixL();
+
+  // Create augmented sigma points
+  Xsig_aug.col(0) = x_aug;
+  for (unsigned int i = 0; i < n_aug_; ++i) {
+    Xsig_aug.col(i + 1) = x_aug + sqrt(lambda_ + n_aug_) * L.col(i);
+    Xsig_aug.col(i + 1 + n_aug_) = x_aug - sqrt(lambda_ + n_aug_) * L.col(i);
+  }
+}
+
+void UKF::PredictSigmaPoints(const MatrixXd & Xsig_aug, const double & delta_t, MatrixXd & Xsig_pred) {
+
+  for (unsigned int i = 0; i < n_sig_; ++i) {
+
+    // Extract values for better readability
+    VectorXd x = Xsig_aug.col(i).head(n_x_);
+    double v = x(2);
+    double psi = x(3);
+    double psid = x(4);
+    double nu_a = Xsig_aug.col(i)(n_x_);
+    double nu_psidd = Xsig_aug.col(i)(n_x_ + 1);
+    
+    // Precompute some factors to avoid unnecessary repetitions
+    double cos_psi = cos(psi);
+    double sin_psi = sin(psi);
+    double delta_t_2 = delta_t * delta_t;
+    
+    // Create process vector
+    VectorXd x1(n_x_);
+    // Avoid division by zero
+    if (fabs(psid) < 0.001) {
+        
+        x1 << v * cos_psi * delta_t,
+              v * sin_psi * delta_t,
+              0, 
+              0, 
+              0;
+    }
+    else {
+        
+        x1 << v / psid * (sin(psi + psid * delta_t) - sin_psi),
+              v / psid * (-cos(psi + psid * delta_t) + cos_psi),
+              0,
+              psid * delta_t,
+              0;
+    }
+
+    // Create noise vector
+    VectorXd x2(n_x_);
+    x2 << 0.5 * delta_t_2 * cos_psi * nu_a,
+          0.5 * delta_t_2 * sin_psi * nu_a,
+          delta_t * nu_a,
+          0.5 * delta_t_2 * nu_psidd,
+          delta_t * nu_psidd;
+
+    // Add process and noise vectors
+    x += x1 + x2;
+    
+    Xsig_pred.col(i) = x;
+  }
+}
+
 /**
  * Predicts sigma points, the state, and the state covariance matrix.
  * @param {double} delta_t the change in time (in seconds) between the last
  * measurement and this one.
  */
 void UKF::Prediction(double delta_t) {
-  /**
-  TODO:
 
-  Complete this function! Estimate the object's location. Modify the state
-  vector, x_. Predict sigma points, the state, and the state covariance matrix.
-  */
+  MatrixXd Xsig_aug = MatrixXd(n_aug_, n_sig_);
+
+  // Generate augmented sigma points
+  GenerateSigmaPoints(x_, P_, Xsig_aug);
+  // Predict sigma points
+  PredictSigmaPoints(Xsig_aug, delta_t, Xsig_pred_);
+
+  // Predict state mean
+  x_ += Xsig_pred_ * weights_;
+
+  // Predict state covariance matrix
+  P_.fill(0.0);
+  for (unsigned int i = 0; i < n_sig_; ++i) {
+    VectorXd x_diff = Xsig_pred_.col(i) - x_;
+
+    while(x_diff(3) > M_PI) x_diff(3) -= 2. * M_PI;
+    while(x_diff(3) < -M_PI) x_diff(3) += 2. * M_PI;
+
+    P_ = P_ + weights_(i) * x_diff * x_diff.transpose();
+  }
 }
 
 /**
