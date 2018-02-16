@@ -74,6 +74,12 @@ public:
   ///* Sigma point spreading parameter
   double lambda_;
 
+	///* Current NIS for LIDAR
+	double NIS_lidar_;
+
+	///* Current NIS for RADAR
+	double NIS_radar_;
+
 
   /**
    * Constructor
@@ -111,7 +117,7 @@ public:
   void UpdateRadar(MeasurementPackage meas_package);
 
 private:
-	void NormalizeAngle(VectorXd v, const int & i);
+	void NormalizeAngle(VectorXd & v, const int & i);
   void GenerateSigmaPoints(const VectorXd & x, const MatrixXd & P, MatrixXd & Xsig_aug);
   void PredictSigmaPoints(const MatrixXd & Xsig_aug, const double & delta_t, MatrixXd & Xsig_pred);
 };
