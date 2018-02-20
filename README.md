@@ -48,8 +48,8 @@ Code compiles without errors using `cmake` and `make`. [CMakeLists.txt]( https:/
 
 After running the algorithm against Dataset 1 and Dataset 2 in the simulator and comparing the estimated positions with the ground truth, the RMSE values are:
 
-* Dataset 1 : [0.0973, 0.0855, 0.4513, 0.4399]
-* Dataset 2 : [0.0726, 0.0965, 0.4216, 0.4932]
+* Dataset 1 : [0.0692, 0.0829, 0.3333, 0.2344]
+* Dataset 2 : [0.0685, 0.0693, 0.5846, 0.2473]
 
 ![dataset1][dataset1]
 ![dataset2][dataset2]
